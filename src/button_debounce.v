@@ -1,79 +1,58 @@
-// Copyright 2018 Schuyler Eldridge
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+function matlib_yinghua
+hold on,axis equal
+axis(0.5+[-10,50,0,50])
+set(gca,'xtick',[],'ytick',[],'xcolor','w','ycolor','w')
+set(gca,'color',[0.5020    0.5020    0.5020])
 
-`timescale 1ns / 1ps
-module button_debounce
-  #(
-    parameter
-    CLK_FREQUENCY  = 10_000_000,
-    DEBOUNCE_HZ    = 2
-    // These parameters are specified such that you can choose any power
-    // of 2 frequency for a debouncer between 1 Hz and
-    // CLK_FREQUENCY. Note, that this will throw errors if you choose a
-    // non power of 2 frequency (i.e. count_value evaluates to some
-    // number / 3 which isn't interpreted as a logical right shift). I'm
-    // assuming this will not work for DEBOUNCE_HZ values less than 1,
-    // however, I'm uncertain of the value of a debouncer for fractional
-    // hertz button presses.
-    )
-  (
-   input      clk,     // clock
-   input      reset_n, // asynchronous reset
-   input      button,  // bouncy button
-   output reg debounce // debounced 1-cycle signal
-   );
+length_trunk=6;
+width_trunk=4;
+k1=0.9;
+k2=0.8;
+k3=0.4;
+number_branch=15;
+alp=pi/10;
+length_branch=k1*length_trunk;
+width_branch=k2*width_trunk;
+trunk=[12,0;12,length_trunk];
+plot(trunk(:,1),trunk(:,2),'color',[0 0 0],'Linewidth',width_trunk)
+begins=[trunk(2,:),pi/2,1];
+grow=begins;
+plotdata=[0 0 0 0 0 0 0 0];
+plotdata(1,:)=[];
+for i=1:number_branch
+    control=randi(25,[length(grow(:,1)),1])>=10;
+    ag=grow(:,3);
+    l=length(ag);
+    parta=[length_branch.*k1.^grow(:,4).*cos(ag+ones(l,1)*alp),length_branch.*k1.^grow(:,4).*sin(ag+ones(l,1)*alp),ones(l,1)*alp,ones(l,1)];
+    partb=[length_branch.*k1.^grow(:,4).*cos(ag-ones(l,1)*alp),length_branch.*k1.^grow(:,4).*sin(ag-ones(l,1)*alp),-ones(l,1)*alp,ones(l,1)];
+    parta2=[0.8.*length_branch.*k1.^grow(:,4).*cos(ag),0.8.*length_branch.*k1.^grow(:,4).*sin(ag),zeros(l,1),ones(l,1)];
+    partb2=[0.8.*length_branch.*k1.^grow(:,4).*cos(ag),0.8.*length_branch.*k1.^grow(:,4).*sin(ag),zeros(l,1),ones(l,1)];
+    parta=control.*parta+(~control).*parta2;
+    partb=control.*partb+(~control).*partb2;
+    parta=parta+grow;
+    partb=partb+grow;
+    congress=[parta;partb];
+    grow=[grow;grow];
+    judge=[grow,congress];
+    judge=unique(judge,'rows');
+    grow=judge(:,5:end);
+    plotdata=[plotdata;judge];
+end
+for i=1:number_branch
+    temp_w=width_branch*0.8^i;
+    temp_branch=plotdata(plotdata(:,4)==i,:);
+    plx=[temp_branch(:,1),temp_branch(:,5)];
+    ply=[temp_branch(:,2),temp_branch(:,6)];
+    plx=plx';ply=ply';
+    plot(plx,ply,'color',[0 0 0]+i*[0.3020 0.3020 0.3020]./number_branch,'Linewidth',temp_w)
+end
 
-  localparam
-    COUNT_VALUE  = CLK_FREQUENCY / DEBOUNCE_HZ,
-    WAIT         = 0,
-    FIRE         = 1,
-    COUNT        = 2;
+bloom_pos=plotdata(plotdata(:,8)==number_branch+1,[5,6]);
+scatter(bloom_pos(:,1),bloom_pos(:,2),10,'CData',[0.8549    0.6824    0.6824])
+bloom_pos=plotdata(plotdata(:,8)==number_branch,[5,6]);
+scatter(bloom_pos(:,1),bloom_pos(:,2),8,'CData',[0.7451    0.5961    0.5961].*0.97)
 
-  reg [1:0]   state, next_state;
-  reg [25:0]  count;
 
-  always @ (posedge clk or negedge reset_n)
-    state <= (!reset_n) ? WAIT : next_state;
 
-  always @ (posedge clk or negedge reset_n) begin
-    if (!reset_n) begin
-      debounce <= 0;
-      count    <= 0;
-    end
-    else begin
-      debounce <= 0;
-      count    <= 0;
-      case (state)
-        WAIT: begin
-        end
-        FIRE: begin
-          debounce <= 1;
-        end
-        COUNT: begin
-          count <= count + 1;
-        end
-      endcase
-    end
-  end
 
-  always @ * begin
-    case (state)
-      WAIT:    next_state = (button)                  ? FIRE : state;
-      FIRE:    next_state = COUNT;
-      COUNT:   next_state = (count > COUNT_VALUE - 1) ? WAIT : state;
-      default: next_state = WAIT;
-    endcase
-  end
-
-endmodule
+end
